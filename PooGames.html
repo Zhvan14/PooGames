@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poo Games Order</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5; /* Light gray background */
+        }
+        /* Custom styles for the app */
+        .product-card {
+            background-color: #ffffff;
+            border: 1px solid #e2e8f0;
+            transition: transform 0.2s;
+        }
+        .product-card:hover {
+            transform: translateY(-5px);
+        }
+        .btn-primary {
+            background-color: #4CAF50; /* Green */
+            color: white;
+            transition: background-color 0.2s;
+        }
+        .btn-primary:hover {
+            background-color: #45a049;
+        }
+        .btn-danger {
+            background-color: #f44336; /* Red */
+            color: white;
+            transition: background-color 0.2s;
+        }
+        .btn-danger:hover {
+            background-color: #da190b;
+        }
+        .btn-warning {
+            background-color: #ff9800; /* Orange */
+            color: white;
+            transition: background-color 0.2s;
+        }
+        .btn-warning:hover {
+            background-color: #e68a00;
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: white;
+            font-size: 2rem;
+            z-index: 1000;
+            text-align: center;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-6 md:p-8">
+    <div class="max-w-4xl mx-auto bg-gray-100 rounded-lg shadow-xl p-4 sm:p-6 md:p-8">
+        <h1 class="text-3xl sm:text-4xl font-bold text-center mb-6 text-gray-800">💩 Poo Games Order 🎮</h1>
+        <p class="text-center text-gray-600 mb-8">Get ready for the most exclusive gaming experience of your life!</p>
+
+        <!-- Product Listing Section -->
+        <div id="product-list" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+            <!-- Products will be dynamically loaded here -->
+        </div>
+
+        <hr class="my-8 border-t border-gray-300">
+
+        <!-- Shopping Cart Section -->
+        <div id="shopping-cart-section" class="bg-white rounded-lg shadow-md p-4 sm:p-6">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800 text-center">🛒 Your Cart</h2>
+            <div id="cart-items" class="mb-4">
+                <!-- Cart items will be dynamically loaded here -->
+                <p id="empty-cart-message" class="text-gray-500 text-center">Your cart is empty. Add some games!</p>
+            </div>
+            <div class="flex flex-col sm:flex-row justify-between items-center border-t pt-4">
+                <span class="text-xl font-bold text-gray-800 mb-2 sm:mb-0">Total: $<span id="cart-total">0.00</span></span>
+                <button id="checkout-btn" class="btn-primary px-6 py-3 rounded-md font-semibold text-lg opacity-50 cursor-not-allowed" disabled>Proceed to Checkout</button>
+            </div>
+        </div>
+
+        <!-- Loading/Confirmation Overlay -->
+        <div id="loading-overlay" class="loading-overlay hidden">
+            <p id="loading-text" class="mb-4">Scanning for address...</p>
+            <div class="spinner border-4 border-solid border-gray-400 border-t-transparent rounded-full w-16 h-16 animate-spin"></div>
+            <p id="delivery-message" class="mt-8 text-2xl hidden"></p>
+            <button id="restart-btn" class="btn-warning px-6 py-3 rounded-md font-semibold text-lg mt-8 hidden">Start New Order</button>
+        </div>
+    </div>
+
+    <script>
+        // Array of product objects
+        const products = [
+            {
+                id: 'super-balon-maker-cd',
+                name: 'Super Balon Maker CD',
+                price: 599.00,
+                image: 'https://placehold.co/150x150/FF0000/FFFFFF?text=Super+Balon+Maker+CD',
+                soldOut: false
+            },
+            {
+                id: 'super-balon',
+                name: 'Super Balon',
+                price: 0.00, // Price doesn't matter if sold out, but good to have
+                image: '', // No image provided by user, will show 'Sold Out'
+                soldOut: true
+            },
+            {
+                id: 'poo-box',
+                name: 'The Poo Box',
+                price: 1000.00,
+                image: 'https://placehold.co/150x150/8B4513/FFFFFF?text=The+Poo+Box%0A(Worst+Console)', // Custom image for 'worst console'
+                soldOut: false
+            },
+            {
+                id: '10-games-cd',
+                name: '10 Games CD',
+                price: 10000.00,
+                image: 'https://placehold.co/150x150/0000FF/FFFFFF?text=10+Games+CD',
+                soldOut: false
+            }
+        ];
+
+        // Shopping cart array to store selected items
+        let cart = [];
+
+        // Get DOM elements
+        const productListDiv = document.getElementById('product-list');
+        const cartItemsDiv = document.getElementById('cart-items');
+        const cartTotalSpan = document.getElementById('cart-total');
+        const emptyCartMessage = document.getElementById('empty-cart-message');
+        const checkoutBtn = document.getElementById('checkout-btn');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loadingText = document.getElementById('loading-text');
+        const deliveryMessage = document.getElementById('delivery-message');
+        const restartBtn = document.getElementById('restart-btn');
+
+        /**
+         * Renders the product list on the page.
+         */
+        function renderProducts() {
+            productListDiv.innerHTML = ''; // Clear existing products
+            products.forEach(product => {
+                const productCard = document.createElement('div');
+                productCard.className = 'product-card rounded-lg p-4 flex flex-col items-center shadow-md';
+                productCard.innerHTML = `
+                    <img src="${product.image || 'https://placehold.co/150x150/CCCCCC/FFFFFF?text=No+Image'}" alt="${product.name}" class="w-32 h-32 object-contain mb-4 rounded-md">
+                    <h3 class="text-xl font-semibold text-gray-900 text-center mb-2">${product.name}</h3>
+                    <p class="text-lg text-gray-700 mb-4">${product.soldOut ? '<span class="text-red-600 font-bold">SOLD OUT</span>' : `$${product.price.toFixed(2)}`}</p>
+                    <button data-id="${product.id}" class="btn-primary px-4 py-2 rounded-md font-medium ${product.soldOut ? 'opacity-50 cursor-not-allowed' : ''}" ${product.soldOut ? 'disabled' : ''}>
+                        ${product.soldOut ? 'Sold Out' : 'Add to Cart'}
+                    </button>
+                `;
+                productListDiv.appendChild(productCard);
+            });
+
+            // Add event listeners for "Add to Cart" buttons
+            document.querySelectorAll('#product-list button').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const productId = event.target.dataset.id;
+                    addToCart(productId);
+                });
+            });
+        }
+
+        /**
+         * Adds a product to the shopping cart.
+         * @param {string} productId - The ID of the product to add.
+         */
+        function addToCart(productId) {
+            const product = products.find(p => p.id === productId);
+            if (!product || product.soldOut) {
+                console.warn('Cannot add sold out or non-existent product to cart.');
+                return;
+            }
+
+            const cartItem = cart.find(item => item.id === productId);
+            if (cartItem) {
+                cartItem.quantity++;
+            } else {
+                cart.push({ ...product, quantity: 1 });
+            }
+            renderCart();
+        }
+
+        /**
+         * Removes a product from the shopping cart.
+         * @param {string} productId - The ID of the product to remove.
+         */
+        function removeFromCart(productId) {
+            const cartItemIndex = cart.findIndex(item => item.id === productId);
+            if (cartItemIndex > -1) {
+                cart[cartItemIndex].quantity--;
+                if (cart[cartItemIndex].quantity <= 0) {
+                    cart.splice(cartItemIndex, 1); // Remove item if quantity is 0 or less
+                }
+            }
+            renderCart();
+        }
+
+        /**
+         * Renders the current state of the shopping cart.
+         */
+        function renderCart() {
+            cartItemsDiv.innerHTML = ''; // Clear existing cart items
+            let total = 0;
+
+            if (cart.length === 0) {
+                emptyCartMessage.classList.remove('hidden');
+            } else {
+                emptyCartMessage.classList.add('hidden');
+                cart.forEach(item => {
+                    const itemTotal = item.price * item.quantity;
+                    total += itemTotal;
+
+                    const cartItemDiv = document.createElement('div');
+                    cartItemDiv.className = 'flex justify-between items-center p-3 border-b last:border-b-0';
+                    cartItemDiv.innerHTML = `
+                        <div class="flex-1">
+                            <span class="font-medium text-gray-800">${item.name}</span>
+                            <span class="text-sm text-gray-600"> (x${item.quantity})</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="font-bold text-gray-900">$${itemTotal.toFixed(2)}</span>
+                            <button data-id="${item.id}" class="btn-danger text-sm px-2 py-1 rounded">Remove</button>
+                        </div>
+                    `;
+                    cartItemsDiv.appendChild(cartItemDiv);
+                });
+            }
+
+            cartTotalSpan.textContent = total.toFixed(2);
+
+            // Enable/disable checkout button based on cart content
+            if (cart.length > 0) {
+                checkoutBtn.disabled = false;
+                checkoutBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                checkoutBtn.disabled = true;
+                checkoutBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+
+            // Add event listeners for "Remove" buttons
+            document.querySelectorAll('#cart-items button.btn-danger').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const productId = event.target.dataset.id;
+                    removeFromCart(productId);
+                });
+            });
+        }
+
+        /**
+         * Handles the checkout process, showing loading and delivery time.
+         */
+        checkoutBtn.addEventListener('click', () => {
+            if (cart.length === 0) {
+                return; // Should be disabled, but a safety check
+            }
+
+            // Hide main content
+            document.getElementById('product-list').classList.add('hidden');
+            document.getElementById('shopping-cart-section').classList.add('hidden');
+
+            // Show loading overlay
+            loadingOverlay.classList.remove('hidden');
+            loadingText.classList.remove('hidden');
+            deliveryMessage.classList.add('hidden'); // Hide previous message
+            restartBtn.classList.add('hidden'); // Hide restart button initially
+
+            // Simulate scanning for address
+            setTimeout(() => {
+                loadingText.classList.add('hidden'); // Hide scanning text
+                const years = Math.floor(Math.random() * (50 - 30 + 1)) + 30; // Random number between 30 and 50
+                deliveryMessage.textContent = `Your order will come in ${years} years.`;
+                deliveryMessage.classList.remove('hidden');
+                restartBtn.classList.remove('hidden'); // Show restart button
+            }, 3000); // 3-second delay for scanning
+        });
+
+        /**
+         * Resets the app to start a new order.
+         */
+        restartBtn.addEventListener('click', () => {
+            cart = []; // Clear the cart
+            renderCart(); // Update cart display
+            loadingOverlay.classList.add('hidden'); // Hide overlay
+
+            // Show main content again
+            document.getElementById('product-list').classList.remove('hidden');
+            document.getElementById('shopping-cart-section').classList.remove('hidden');
+        });
+
+        // Initialize the app on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            renderProducts();
+            renderCart(); // Initialize cart display (will show empty message)
+        });
+    </script>
+</body>
+</html>
+
